@@ -1,0 +1,64 @@
+
+Testing reading from a file while writing to it.
+
+* Building
+A newish g++ compile is needed on rhel7 run:
+% scl enable devtoolset-8 /bin/bash
+
+% make
+
+The binaries are created in the bin/ sub-folder:
+  bin/rww_reader_single 
+  bin/rww_writer
+
+* Write single file and have multiple client read at one offset
+
+** Test procedure
+*** Writer
+- single writer process
+- Writes sequentially 512MiB blocks to the test file
+- O_DIRECT is used.
+*** Reader
+- wait for test-file to show up in the file system
+- read a single block at a certain offset within the test-file using the
+  *pread* syscall. The offset is a cmd-line argument and could be any value
+  (e.g.: not aligned to 4K )
+- loop until a pread returns >0 bytes.
+- when zero bytes were read try immediately to read again (no wait in between reads)
+** Running
+The script *run_test_all.sh* starts the readers (remote) and writer (local).
+It has the file path and reader nodes hard coded and uses pdsh to start multiple readers.
+The readers are started by executing *run_reader.sh* on the remote nodes which will start
+the actual reader *rww_reader_single*. The offset is also set in *run_reader.sh* .
+
+*** output
+Each reader prints a line like:
+match memcmp: 0 size: 915709 file-size: 0 10931404800 offset: 10913711875 errorpos -2
+with:
+   | memcmp    | Result of comparing the read-data with the expected (all byes 0xff)         |
+   |           | 0 means the data are equal                                                  |
+   | size      | number of bytes returned by pread call. The expected size is1048576 (1MiB). |
+   | file-size | file size (from stat call) after some bytes were read                       |
+   | offset    | offset for the read call                                                    |
+   | errorpos  | position within the read data where bytes are 0x0 instead of 0xff           |
+
+Example output:
+ Write to "/cds/data/drpsrcf/temp/wktst/fs/f1"
+ drp-srcf-cmp047: match memcmp: 0 size: 621181 file-size: 0 10882121728 offset: 10858431875 errorpos -2
+ drp-srcf-cmp044: match memcmp: 0 size: 915709 file-size: 0 10931404800 offset: 10913711875 errorpos -2
+ drp-srcf-cmp045: match memcmp: 0 size: 1048576 file-size: 0 10956570624 offset: 10938991875 errorpos -2
+ drp-srcf-cmp055: match memcmp: 0 size: 997293 file-size: 0 10966007808 offset: 10949281875 errorpos -2
+ drp-srcf-cmp050: match memcmp: 0 size: 284477 file-size: 0 10976493568 offset: 10959431875 errorpos -2
+ drp-srcf-cmp054: match memcmp: 0 size: 644829 file-size: 0 11049893888 offset: 11039811875 errorpos -2
+ drp-srcf-cmp048: match memcmp: 0 size: 1048576 file-size: 0 11077156864 offset: 11047421875 errorpos -2
+ drp-srcf-cmp049: match memcmp: 0 size: 1048576 file-size: 0 11082399744 offset: 11058231875 errorpos -2
+ drp-srcf-cmp043: match memcmp: 0 size: 1048576 file-size: 0 11241783296 offset: 10810161875 errorpos -2
+ drp-srcf-cmp051: match memcmp: -65280 size: 1048576 file-size: 0 11272192000 offset: 10835791875 errorpos 192509
+ drp-srcf-cmp052: match memcmp: 0 size: 1048576 file-size: 0 11418992640 offset: 11004621875 errorpos -2
+ drp-srcf-cmp053: match memcmp: 0 size: 1048576 file-size: 0 11452547072 offset: 11038711875 errorpos -2
+ drp-srcf-cmp046: match memcmp: 0 size: 1048576 file-size: 0 11461984256 offset: 11052581875 errorpos -2
+ Done elap[ms] 2904 sz-written/sz-max 11811160064 107374182400
+
+ The reader on drp-srcf-cmp051 failed. It read 1,048,576 bytes at offset 1,083,579,187. The begiining of the read data
+ were correct but starting with byte 192,509 the data are 0.
+ 
