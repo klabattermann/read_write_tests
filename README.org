@@ -12,7 +12,6 @@ The binaries are created in the bin/ sub-folder:
   bin/rww_writer
 
 * Write single file and have multiple client read at one offset
-
 ** Test procedure
 *** Writer
 - single writer process
@@ -31,9 +30,11 @@ It has the file path and reader nodes hard coded and uses pdsh to start multiple
 The readers are started by executing *run_reader.sh* on the remote nodes which will start
 the actual reader *rww_reader_single*. The offset is also set in *run_reader.sh* .
 
-*** output
+*** Output
 Each reader prints a line like:
+
 match memcmp: 0 size: 915709 file-size: 0 10931404800 offset: 10913711875 errorpos -2
+
 with:
    | memcmp    | Result of comparing the read-data with the expected (all byes 0xff)         |
    |           | 0 means the data are equal                                                  |
