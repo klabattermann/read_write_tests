@@ -11,24 +11,26 @@ The binaries are created in the bin/ sub-folder:
   bin/rww_reader_single 
   bin/rww_writer
 
-* Write single file and have multiple client read at one offset
+* Write single file and have multiple clients read at one offset
 ** Test procedure
 *** Writer
 - single writer process
+- write runs on a different node from the readers
 - Writes sequentially 512MiB blocks to the test file
-- O_DIRECT is used.
+- O_DIRECT and *write* sys-call is used 
 *** Reader
 - wait for test-file to show up in the file system
 - read a single block at a certain offset within the test-file using the
   *pread* syscall. The offset is a cmd-line argument and could be any value
-  (e.g.: not aligned to 4K )
+  (e.g.: not aligned to 4K or the 512MiB write block size)
 - loop until a pread returns >0 bytes.
-- when zero bytes were read try immediately to read again (no wait in between reads)
+- when zero bytes were read immediately read again (no wait in between reads)
 ** Running
 The script *run_test_all.sh* starts the readers (remote) and writer (local).
-It has the file path and reader nodes hard coded and uses pdsh to start multiple readers.
-The readers are started by executing *run_reader.sh* on the remote nodes which will start
-the actual reader *rww_reader_single*. The offset is also set in *run_reader.sh* .
+It has the file path and reader nodes hard coded and uses pdsh to start multiple readers on
+different nodes.
+*run_test_all.sh* starts the readers by executing *run_reader.sh* on the remote nodes which itself
+will start the actual reader *rww_reader_single*. The offset is set in *run_reader.sh*.
 
 *** Output
 Each reader prints a line like:
@@ -60,6 +62,6 @@ Example output:
  drp-srcf-cmp046: match memcmp: 0 size: 1048576 file-size: 0 11461984256 offset: 11052581875 errorpos -2
  Done elap[ms] 2904 sz-written/sz-max 11811160064 107374182400
 
- The reader on drp-srcf-cmp051 failed. It read 1,048,576 bytes at offset 1,083,579,187. The begiining of the read data
- were correct but starting with byte 192,509 the data are 0.
+ The reader on drp-srcf-cmp051 failed. It read 1,048,576 bytes at offset 1,083,579,187. The begiining of
+ the read data were correct but starting with byte 192,509 the data are 0.
  
